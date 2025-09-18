@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connect-go
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connect-go
+  template:
+    metadata:
+      labels:
+        app: connect-go
+    spec:
+      containers:
+      - name: connect-go
+        image: <your-dockerhub-username>/connect-go:latest
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connect-go-service
+spec:
+  selector:
+    app: connect-go
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

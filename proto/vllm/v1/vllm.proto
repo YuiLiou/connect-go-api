@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package vllm.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/any.proto";
+
+option go_package = "connect-go/gen/vllmv1;vllmv1";
+
+service LLMApiService {
+  rpc StartLLM(LLMRequest) returns (LLMResponse) {
+    option (google.api.http) = {
+      post: "/llm/start"
+      body: "*"
+    };
+  }
+
+  rpc StopLLM(LLMRequest) returns (LLMResponse) {
+    option (google.api.http) = {
+      post: "/llm/stop"
+      body: "*"
+    };
+  }
+
+  rpc ListLLMs(ListLLMsRequest) returns (ListLLMsResponse) {
+    option (google.api.http) = {
+      get: "/llm/list"
+    };
+  }
+
+  rpc UpdateLLM(UpdateLLMRequest) returns (LLMResponse) {
+    option (google.api.http) = {
+      patch: "/llm/update"
+      body: "*"
+    };
+  }
+
+  rpc CreateLLM(CreateLLMRequest) returns (LLMResponse) {
+    option (google.api.http) = {
+      post: "/llm/create"
+      body: "*"
+    };
+  }
+}
+
+message LLMRequest {
+  string namespace = 1;
+  string runtime_name = 2;
+  optional int32 replicas = 3;
+}
+
+message UpdateLLMRequest {
+  string namespace = 1;
+  string runtime_name = 2;
+  optional int32 replicas = 3;
+  map<string, google.protobuf.Any> spec = 4;
+}
+
+message CreateLLMRequest {
+  string namespace = 1;
+  string runtime_name = 2;
+  optional int32 replicas = 3;
+  map<string, google.protobuf.Any> spec = 4;
+}
+
+message ListLLMsRequest {
+  string namespace = 1;
+}
+
+message LLMResponse {
+  string message = 1;
+  map<string, google.protobuf.Any> spec = 2;
+}
+
+message ListLLMsResponse {
+  repeated LLMInfo llms = 1;
+}
+
+message LLMInfo {
+  string name = 1;
+  string model = 2;
+  int32 replicas = 3;
+  map<string, google.protobuf.Any> status = 4;
+}

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package greet.v1;
 
-option go_package = "connect-go/gen/greetv1;greetv1";
+option go_package = "connect-go/api/greetv1;greetv1";
 
 message GreetRequest {
   string name = 1;

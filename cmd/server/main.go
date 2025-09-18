@@ -10,8 +10,8 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
-	greetv1 "connect-go/gen/greetv1"
-	greetv1connect "connect-go/gen/greetv1/greetv1connect"
+	greetv1 "connect-go/api/greetv1"
+	greetv1connect "connect-go/api/greetv1/greetv1connect"
 )
 
 type GreetServer struct{}

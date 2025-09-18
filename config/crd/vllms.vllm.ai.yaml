@@ -64,3 +64,10 @@ spec:
     kind: VLLM
     shortNames:
       - vllm
+status:
+  phase:
+    type: string
+    description: "Current phase of vLLM (Running, Stopped, Updating, etc)"
+  message:
+    type: string
+    description: "Status message"

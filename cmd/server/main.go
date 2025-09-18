@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -15,6 +14,7 @@ import (
 
 	greetv1 "connect-go/api/greetv1"
 	greetv1connect "connect-go/api/greetv1/greetv1connect"
+	"io"
 )
 
 type GreetServer struct{}
@@ -37,7 +37,7 @@ func updateVLLMStatusHandler(w http.ResponseWriter, r *http.Request) {
 		Action string `json:"action"` // start, stop, update
 	}
 	var req UpdateRequest
-	body, _ := ioutil.ReadAll(r.Body)
+	body, _ := io.ReadAll(r.Body)
 	json.Unmarshal(body, &req)
 
 	// 根據 action 呼叫 vLLM API

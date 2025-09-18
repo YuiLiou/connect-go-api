@@ -1,3 +1,5 @@
+.PHONY: proto build run
+
 proto:
 	protoc \
 	--go_out=. \
@@ -6,7 +8,7 @@ proto:
 	--go-grpc_opt=module=connect-go \
 	--connect-go_out=. \
 	--connect-go_opt=module=connect-go \
-	greet/v1/greet.proto
+	proto/greet/v1/greet.proto
 
 build:
 	go build ./cmd/server/main.go

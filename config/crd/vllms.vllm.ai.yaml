@@ -1,0 +1,66 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: vllms.vllm.ai
+spec:
+  group: vllm.ai
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                namespace:
+                  type: string
+                  description: "Kubernetes namespace for the vLLM model"
+                runtimeName:
+                  type: string
+                  description: "Name of the vLLM runtime or model"
+                replicas:
+                  type: integer
+                  minimum: 0
+                  nullable: true
+                  description: "Number of replicas for the model (optional)"
+                model:
+                  type: string
+                  description: "Model name (e.g., meta-llama/Llama-2-7b-hf)"
+                storageUri:
+                  type: string
+                  description: "Model storage path (e.g., s3://bucket/models)"
+                args:
+                  type: array
+                  items:
+                    type: string
+                  description: "vLLM runtime arguments (e.g., --max-model-len=512)"
+                status:
+                  type: string
+                  enum: ["Running", "Stopped", "Pending", "Failed"]
+                  description: "Desired state of the model"
+              required: [namespace, runtimeName, model]
+            status:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+                  description: "Service endpoint (e.g., http://llama-2-7b.default.svc.cluster.local:8000)"
+                modelStatus:
+                  type: string
+                  description: "Current status of the model"
+                currentReplicas:
+                  type: integer
+                  description: "Current number of running replicas"
+                lastUpdated:
+                  type: string
+                  description: "Timestamp of last status update"
+  scope: Namespaced
+  names:
+    plural: vllms
+    singular: vllm
+    kind: VLLM
+    shortNames:
+      - vllm

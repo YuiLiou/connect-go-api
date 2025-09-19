@@ -12,17 +12,7 @@ type VLLMAPI struct {
 }
 
 func (a *VLLMAPI) callAPI(action, model string) error {
-	var url string
-	switch action {
-	case "start":
-		url = fmt.Sprintf("%s/v1/start", a.Endpoint)
-	case "stop":
-		url = fmt.Sprintf("%s/v1/stop", a.Endpoint)
-	case "update":
-		url = fmt.Sprintf("%s/v1/update", a.Endpoint)
-	default:
-		return fmt.Errorf("invalid action: %s", action)
-	}
+	url := fmt.Sprintf("%s/v1/%s", a.Endpoint, action)
 	payload, _ := json.Marshal(map[string]string{"model": model})
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
@@ -35,6 +25,14 @@ func (a *VLLMAPI) callAPI(action, model string) error {
 	return nil
 }
 
-func (a *VLLMAPI) Start(model string) error  { return a.callAPI("start", model) }
-func (a *VLLMAPI) Stop(model string) error   { return a.callAPI("stop", model) }
-func (a *VLLMAPI) Update(model string) error { return a.callAPI("update", model) }
+func (a *VLLMAPI) Start(model string) error {
+	return a.callAPI("start", model)
+}
+
+func (a *VLLMAPI) Stop(model string) error {
+	return a.callAPI("stop", model)
+}
+
+func (a *VLLMAPI) Update(model string) error {
+	return a.callAPI("update", model)
+}

@@ -1,22 +1,22 @@
 package controllers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	app "connect-go/internal/application/vllm"
 )
 
 type VLLMReconciler struct {
 	client.Client
-	Schema *runtime.Scheme
+	Scheme      *runtime.Scheme
+	VLLMService app.VLLMService // 注入 application 層 service
 }
 
 type VLLMCR struct {
@@ -46,54 +46,57 @@ func (in *VLLMCR) DeepCopyObject() runtime.Object {
 
 func (r *VLLMReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
+
 	// 1. Fetch the VLLMCR
 	var cr VLLMCR
 	if err := r.Get(ctx, req.NamespacedName, &cr); err != nil {
 		log.Error(err, "unable to fetch VLLMCR", "namespace", req.Namespace, "name", req.Name)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	// 2. Call the Go server API (vLLM service)
-	payload, err := json.Marshal(map[string]string{
-		"model":  cr.Spec.Model,
-		"action": cr.Spec.Action,
-	})
-	if err != nil {
-		log.Error(err, "failed to marshal API payload")
-		cr.Status.Phase = "Failed"
-		cr.Status.Message = fmt.Sprintf("Payload error: %v", err)
-		if updateErr := r.Client.Status().Update(ctx, &cr); updateErr != nil {
-			log.Error(updateErr, "failed to update CR status")
-			return ctrl.Result{}, updateErr
+
+	// 2. 根據 action 執行 vLLM production stack 操作
+	var err error
+	switch cr.Spec.Action {
+	case "start":
+		_, err = r.VLLMService.Start(cr.Spec.Model, cr.Spec.Action, "")
+		if err == nil {
+			cr.Status.Phase = "Running"
+			cr.Status.Message = "vLLM model started successfully"
+		} else {
+			cr.Status.Phase = "Failed"
+			cr.Status.Message = fmt.Sprintf("Failed to start model: %v", err)
 		}
-		return ctrl.Result{}, err
-	}
-	resp, err := http.Post("http://go-server-service:8799/vllm/update", "application/json", bytes.NewBuffer(payload))
-	if err != nil {
-		log.Error(err, "failed to call vLLM API")
-		cr.Status.Phase = "Failed"
-		cr.Status.Message = fmt.Sprintf("API error: %v", err)
-		if updateErr := r.Client.Status().Update(ctx, &cr); updateErr != nil {
-			log.Error(updateErr, "failed to update CR status")
-			return ctrl.Result{}, updateErr
+	case "stop":
+		_, err = r.VLLMService.Stop(cr.Spec.Model, cr.Spec.Action, "")
+		if err == nil {
+			cr.Status.Phase = "Stopped"
+			cr.Status.Message = "vLLM model stopped successfully"
+		} else {
+			cr.Status.Phase = "Failed"
+			cr.Status.Message = fmt.Sprintf("Failed to stop model: %v", err)
 		}
-		return ctrl.Result{}, err
+	case "update":
+		_, err = r.VLLMService.Update(cr.Spec.Model, cr.Spec.Action, "")
+		if err == nil {
+			cr.Status.Phase = "Updated"
+			cr.Status.Message = "vLLM model updated successfully"
+		} else {
+			cr.Status.Phase = "Failed"
+			cr.Status.Message = fmt.Sprintf("Failed to update model: %v", err)
+		}
+	default:
+		cr.Status.Phase = "Unknown"
+		cr.Status.Message = fmt.Sprintf("Unknown action: %s", cr.Spec.Action)
 	}
-	defer resp.Body.Close()
-	// 3. Update CR status based on API response
-	if resp.StatusCode == http.StatusOK {
-		cr.Status.Phase = "Succeeded"
-		cr.Status.Message = "vLLM updated successfully"
-	} else {
-		cr.Status.Phase = "Failed"
-		cr.Status.Message = fmt.Sprintf("API returned status: %s", resp.Status)
+
+	// 3. Update CR status
+	if updateErr := r.Client.Status().Update(ctx, &cr); updateErr != nil {
+		log.Error(updateErr, "failed to update CR status")
+		return ctrl.Result{}, updateErr
 	}
-	// 4. Update the CR status
-	if err := r.Client.Status().Update(ctx, &cr); err != nil {
-		log.Error(err, "failed to update CR status")
-		return ctrl.Result{}, err
-	}
-	log.Info("Reconciled VLLMCR", "phase", cr.Status.Phase, "message", cr.Status.Message)
-	return ctrl.Result{}, nil
+
+	log.Info("Reconciled VLLMCR", "action", cr.Spec.Action, "phase", cr.Status.Phase, "message", cr.Status.Message)
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager

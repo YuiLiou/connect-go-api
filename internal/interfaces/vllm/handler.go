@@ -31,13 +31,12 @@ func (h *VLLMHandler) Start(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Model is required", http.StatusBadRequest)
 		return
 	}
-	err := h.Service.Start(req.Namespace, req.RuntimeName, req.Model)
+	vllm, err := h.Service.Start(req.Namespace, req.RuntimeName, req.Model)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	status, _ := h.Service.GetStatus(req.Namespace, req.RuntimeName, req.Model)
-	h.writeResponse(w, req.Model, status, "vLLM started")
+	h.writeResponse(w, req.Model, vllm.Status, "vLLM started")
 }
 
 func (h *VLLMHandler) Stop(w http.ResponseWriter, r *http.Request) {
@@ -50,13 +49,12 @@ func (h *VLLMHandler) Stop(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Model is required", http.StatusBadRequest)
 		return
 	}
-	err := h.Service.Stop(req.Namespace, req.RuntimeName, req.Model)
+	vllm, err := h.Service.Stop(req.Namespace, req.RuntimeName, req.Model)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	status, _ := h.Service.GetStatus(req.Namespace, req.RuntimeName, req.Model)
-	h.writeResponse(w, req.Model, status, "vLLM stopped")
+	h.writeResponse(w, req.Model, vllm.Status, "vLLM stopped")
 }
 
 func (h *VLLMHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -69,13 +67,12 @@ func (h *VLLMHandler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Model is required", http.StatusBadRequest)
 		return
 	}
-	err := h.Service.Update(req.Namespace, req.RuntimeName, req.Model)
+	vllm, err := h.Service.Update(req.Namespace, req.RuntimeName, req.Model)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	status, _ := h.Service.GetStatus(req.Namespace, req.RuntimeName, req.Model)
-	h.writeResponse(w, req.Model, status, "vLLM updated")
+	h.writeResponse(w, req.Model, vllm.Status, "vLLM updated")
 }
 
 func (h *VLLMHandler) writeResponse(w http.ResponseWriter, model string, status domain.Status, message string) {

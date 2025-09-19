@@ -27,8 +27,8 @@ func (h *VLLMHandler) Start(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if req.Model == "" {
-		http.Error(w, "Model is required", http.StatusBadRequest)
+	if req.Namespace == "" || req.RuntimeName == "" || req.Model == "" {
+		http.Error(w, "All fields are required", http.StatusBadRequest)
 		return
 	}
 	vllm, err := h.Service.Start(req.Namespace, req.RuntimeName, req.Model)
@@ -36,7 +36,7 @@ func (h *VLLMHandler) Start(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.writeResponse(w, req.Model, vllm.Status, "vLLM started")
+	h.writeResponse(w, req, vllm.Status, "vLLM started")
 }
 
 func (h *VLLMHandler) Stop(w http.ResponseWriter, r *http.Request) {
@@ -45,8 +45,8 @@ func (h *VLLMHandler) Stop(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if req.Model == "" {
-		http.Error(w, "Model is required", http.StatusBadRequest)
+	if req.Namespace == "" || req.RuntimeName == "" || req.Model == "" {
+		http.Error(w, "All fields are required", http.StatusBadRequest)
 		return
 	}
 	vllm, err := h.Service.Stop(req.Namespace, req.RuntimeName, req.Model)
@@ -54,7 +54,7 @@ func (h *VLLMHandler) Stop(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.writeResponse(w, req.Model, vllm.Status, "vLLM stopped")
+	h.writeResponse(w, req, vllm.Status, "vLLM stopped")
 }
 
 func (h *VLLMHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -63,8 +63,8 @@ func (h *VLLMHandler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if req.Model == "" {
-		http.Error(w, "Model is required", http.StatusBadRequest)
+	if req.Namespace == "" || req.RuntimeName == "" || req.Model == "" {
+		http.Error(w, "All fields are required", http.StatusBadRequest)
 		return
 	}
 	vllm, err := h.Service.Update(req.Namespace, req.RuntimeName, req.Model)
@@ -72,18 +72,22 @@ func (h *VLLMHandler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.writeResponse(w, req.Model, vllm.Status, "vLLM updated")
+	h.writeResponse(w, req, vllm.Status, "vLLM updated")
 }
 
-func (h *VLLMHandler) writeResponse(w http.ResponseWriter, model string, status domain.Status, message string) {
+func (h *VLLMHandler) writeResponse(w http.ResponseWriter, req UpdateRequest, status domain.Status, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(struct {
-		Message string `json:"message"`
-		Model   string `json:"model"`
-		Status  string `json:"status"`
+		Message     string `json:"message"`
+		Namespace   string `json:"namespace"`
+		RuntimeName string `json:"runtimeName"`
+		Model       string `json:"model"`
+		Status      string `json:"status"`
 	}{
-		Message: message,
-		Model:   model,
-		Status:  string(status),
+		Message:     message,
+		Namespace:   req.Namespace,
+		RuntimeName: req.RuntimeName,
+		Model:       req.Model,
+		Status:      string(status),
 	})
 }

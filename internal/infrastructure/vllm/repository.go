@@ -2,6 +2,7 @@ package vllm
 
 import (
 	"connect-go/internal/domain/vllm"
+	"fmt"
 )
 
 type VLLMRepository interface {
@@ -20,15 +21,17 @@ func NewInMemoryVLLMRepository() *InMemoryVLLMRepository {
 }
 
 func (r *InMemoryVLLMRepository) FindByModel(namespace, runtimeName, model string) (*vllm.VLLM, error) {
-	v, exists := r.store[model]
+	key := fmt.Sprintf("%s:%s:%s", namespace, runtimeName, model)
+	v, exists := r.store[key]
 	if !exists {
 		v = vllm.NewVLLM(namespace, runtimeName, model)
-		r.store[model] = v
+		r.store[key] = v
 	}
 	return v, nil
 }
 
 func (r *InMemoryVLLMRepository) Save(vllm *vllm.VLLM) error {
-	r.store[vllm.Model] = vllm
+	key := fmt.Sprintf("%s:%s:%s", vllm.Namespace, vllm.RuntimeName, vllm.Model)
+	r.store[key] = vllm
 	return nil
 }

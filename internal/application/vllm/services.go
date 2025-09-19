@@ -13,17 +13,12 @@ type VLLMService interface {
 	GetStatus(namespace, runtimeName, model string) (domain.Status, error)
 }
 
-type VLLMRepository interface {
-	FindByModel(namespace, runtimeName, model string) (*domain.VLLM, error)
-	Save(vllm *domain.VLLM) error
-}
-
 type VLLMServiceImpl struct {
 	api  *infra.VLLMAPI
-	repo VLLMRepository
+	repo infra.VLLMRepository
 }
 
-func NewVLLMServiceImpl(api *infra.VLLMAPI, repo VLLMRepository) *VLLMServiceImpl {
+func NewVLLMServiceImpl(api *infra.VLLMAPI, repo infra.VLLMRepository) *VLLMServiceImpl {
 	return &VLLMServiceImpl{api: api, repo: repo}
 }
 

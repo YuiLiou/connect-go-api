@@ -4,6 +4,11 @@ import (
 	"connect-go/internal/domain/vllm"
 )
 
+type VLLMRepository interface {
+	FindByModel(namespace, runtimeName, model string) (*vllm.VLLM, error)
+	Save(vllm *vllm.VLLM) error
+}
+
 type InMemoryVLLMRepository struct {
 	store map[string]*vllm.VLLM
 }

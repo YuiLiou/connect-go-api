@@ -34,9 +34,10 @@ func (s *GreetServer) Greet(
 }
 
 func main() {
-	vllmAPIEndpoint := os.Getenv("VLLM_API_ENDPOINT")
+	// vllm production stack router endpoint
+	vllmAPIEndpoint := os.Getenv("VLLM_ROUTER_ENDPOINT")
 	if vllmAPIEndpoint == "" {
-		vllmAPIEndpoint = "http://vllm-service:8000"
+		vllmAPIEndpoint = "http://vllm-router-service:80"
 	}
 
 	vllmAPI := &vllmInfra.VLLMAPI{Endpoint: vllmAPIEndpoint}
@@ -66,7 +67,7 @@ func main() {
 	}()
 
 	// 優雅關閉（簡化示例，實際應處理信號）
-	time.Sleep(time.Hour) // 模擬運行
+	time.Sleep(time.Hour)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {

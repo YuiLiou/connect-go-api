@@ -1,5 +1,5 @@
 apiVersion: vllm.ai/v1
-kind: VLLM
+kind: VLLMRuntime
 metadata:
   name: llm-runtime-llama
   namespace: default
@@ -30,14 +30,16 @@ spec:
     remoteSerde: "naive"
   deploymentConfig:
     resources:
-      cpu: "10"
-      memory: "32Gi"
-      gpu: "1"
+      limits:
+        nvidia.com/gpu: "1"
+      requests:
+        cpu: "10"
+        memory: "32Gi"
     image:
       registry: "docker.io"
       name: "lmcache/vllm-openai:2025-05-27-v1"
       pullPolicy: "IfNotPresent"
-    replicas: 0
+    replicas: 1
     deploymentStrategy: "Recreate"
     volumeMounts:  # 掛載 PVC
       - name: model-storage

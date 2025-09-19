@@ -11,6 +11,12 @@ const (
 	StatusFailed   Status = "Failed"
 )
 
+const (
+	ActionStart  = "start"
+	ActionStop   = "stop"
+	ActionUpdate = "update"
+)
+
 type VLLM struct {
 	Model  string
 	Status Status

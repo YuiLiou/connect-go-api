@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"connectrpc.com/connect"
 	"golang.org/x/net/http2"
@@ -12,6 +14,7 @@ import (
 
 	greetv1 "connect-go/api/greetv1"
 	greetv1connect "connect-go/api/greetv1/greetv1connect"
+	vllmApp "connect-go/internal/application/vllm"
 	vllmInfra "connect-go/internal/infrastructure/vllm"
 	vllmIface "connect-go/internal/interfaces/vllm"
 )
@@ -31,20 +34,42 @@ func (s *GreetServer) Greet(
 }
 
 func main() {
-	log.Println("Starting server on localhost:8799")
-	greeter := &GreetServer{}
+	vllmAPIEndpoint := os.Getenv("VLLM_API_ENDPOINT")
+	if vllmAPIEndpoint == "" {
+		vllmAPIEndpoint = "http://vllm-service:8000"
+	}
+
+	vllmAPI := &vllmInfra.VLLMAPI{Endpoint: vllmAPIEndpoint}
+	vllmRepo := vllmInfra.NewInMemoryVLLMRepository()
+	vllmService := vllmApp.NewVLLMServiceImpl(vllmAPI, vllmRepo)
+	vllmHandler := vllmIface.NewVLLMHandler(vllmService)
+
 	mux := http.NewServeMux()
+	greeter := &GreetServer{}
 	path, handler := greetv1connect.NewGreetServiceHandler(greeter)
-	log.Println("Registering handler for path: ", path)
+	log.Println("Registering gRPC handler for path: ", path)
 	mux.Handle(path, handler)
-	vllmAPI := &vllmInfra.VLLMAPI{Endpoint: "http://vllm-service:8000"}
-	vllmHandler := &vllmIface.VLLMHandler{Service: vllmAPI}
-	mux.HandleFunc("/vllm/update", vllmHandler.UpdateVLLMStatus)
-	err := http.ListenAndServe(
-		"localhost:8799",
-		h2c.NewHandler(mux, &http2.Server{}),
-	)
-	if err != nil {
-		log.Fatalf("Error starting server: %v", err)
+
+	mux.HandleFunc("/v1/vllm/start", vllmHandler.Start)
+	mux.HandleFunc("/v1/vllm/stop", vllmHandler.Stop)
+	mux.HandleFunc("/v1/vllm/update", vllmHandler.Update)
+
+	server := &http.Server{
+		Addr:    "localhost:8799",
+		Handler: h2c.NewHandler(mux, &http2.Server{}),
+	}
+	log.Println("Starting server on localhost:8799")
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Error starting server: %v", err)
+		}
+	}()
+
+	// 優雅關閉（簡化示例，實際應處理信號）
+	time.Sleep(time.Hour) // 模擬運行
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
 	}
 }

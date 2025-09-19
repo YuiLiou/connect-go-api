@@ -7,14 +7,14 @@ import (
 )
 
 type VLLMService interface {
-	Start(model string) error
-	Stop(model string) error
-	Update(model string) error
-	GetStatus(model string) (domain.Status, error)
+	Start(namespace, runtimeName, model string) error
+	Stop(namespace, runtimeName, model string) error
+	Update(namespace, runtimeName, model string) error
+	GetStatus(namespace, runtimeName, model string) (domain.Status, error)
 }
 
 type VLLMRepository interface {
-	FindByModel(model string) (*domain.VLLM, error)
+	FindByModel(namespace, runtimeName, model string) (*domain.VLLM, error)
 	Save(vllm *domain.VLLM) error
 }
 
@@ -27,8 +27,8 @@ func NewVLLMServiceImpl(api *infra.VLLMAPI, repo VLLMRepository) *VLLMServiceImp
 	return &VLLMServiceImpl{api: api, repo: repo}
 }
 
-func (s *VLLMServiceImpl) executeOperation(model string, domainOp func(*vllm.VLLM) error, apiOp func(string) error) error {
-	vllm, err := s.repo.FindByModel(model)
+func (s *VLLMServiceImpl) executeOperation(namespace, runtimeName, model string, domainOp func(*vllm.VLLM) error, apiOp func(string) error) error {
+	vllm, err := s.repo.FindByModel(namespace, runtimeName, model)
 	if err != nil {
 		return err
 	}
@@ -41,20 +41,20 @@ func (s *VLLMServiceImpl) executeOperation(model string, domainOp func(*vllm.VLL
 	return s.repo.Save(vllm)
 }
 
-func (s *VLLMServiceImpl) Start(model string) error {
-	return s.executeOperation(model, (*vllm.VLLM).Start, s.api.Start)
+func (s *VLLMServiceImpl) Start(namespace, runtimeName, model string) error {
+	return s.executeOperation(namespace, runtimeName, model, (*vllm.VLLM).Start, s.api.Start)
 }
 
-func (s *VLLMServiceImpl) Stop(model string) error {
-	return s.executeOperation(model, (*vllm.VLLM).Stop, s.api.Stop)
+func (s *VLLMServiceImpl) Stop(namespace, runtimeName, model string) error {
+	return s.executeOperation(namespace, runtimeName, model, (*vllm.VLLM).Stop, s.api.Stop)
 }
 
-func (s *VLLMServiceImpl) Update(model string) error {
-	return s.executeOperation(model, (*vllm.VLLM).Update, s.api.Update)
+func (s *VLLMServiceImpl) Update(namespace, runtimeName, model string) error {
+	return s.executeOperation(namespace, runtimeName, model, (*vllm.VLLM).Update, s.api.Update)
 }
 
-func (s *VLLMServiceImpl) GetStatus(model string) (domain.Status, error) {
-	v, err := s.repo.FindByModel(model)
+func (s *VLLMServiceImpl) GetStatus(namespace, runtimeName, model string) (domain.Status, error) {
+	v, err := s.repo.FindByModel(namespace, runtimeName, model)
 	if err != nil {
 		return domain.StatusFailed, err
 	}

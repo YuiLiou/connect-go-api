@@ -14,10 +14,10 @@ func NewInMemoryVLLMRepository() *InMemoryVLLMRepository {
 	}
 }
 
-func (r *InMemoryVLLMRepository) FindByModel(model string) (*vllm.VLLM, error) {
+func (r *InMemoryVLLMRepository) FindByModel(namespace, runtimeName, model string) (*vllm.VLLM, error) {
 	v, exists := r.store[model]
 	if !exists {
-		v = vllm.NewVLLM(model)
+		v = vllm.NewVLLM(namespace, runtimeName, model)
 		r.store[model] = v
 	}
 	return v, nil

@@ -9,6 +9,7 @@ const (
 	StatusStopped  Status = "Stopped"
 	StatusUpdating Status = "Updating"
 	StatusFailed   Status = "Failed"
+	StatusPending  Status = "Pending"
 )
 
 const (
@@ -18,12 +19,19 @@ const (
 )
 
 type VLLM struct {
-	Model  string
-	Status Status
+	Model       string
+	Status      Status
+	Namespace   string
+	RuntimeName string
 }
 
-func NewVLLM(model string) *VLLM {
-	return &VLLM{Model: model, Status: StatusStopped}
+func NewVLLM(namespace, runtimeName, model string) *VLLM {
+	return &VLLM{
+		Namespace:   namespace,
+		RuntimeName: runtimeName,
+		Model:       model,
+		Status:      StatusStopped,
+	}
 }
 
 func (v *VLLM) Start() error {

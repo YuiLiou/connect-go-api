@@ -3,7 +3,6 @@ kind: CustomResourceDefinition
 metadata:
   name: vllms.vllm.ai
 spec:
-  action: string
   group: vllm.ai
   versions:
     - name: v1
@@ -38,26 +37,55 @@ spec:
                   items:
                     type: string
                   description: "vLLM runtime arguments (e.g., --max-model-len=512)"
-                status:
+                action:
                   type: string
-                  enum: ["Running", "Stopped", "Pending", "Failed"]
-                  description: "Desired state of the model"
-              required: [namespace, runtimeName, model]
+                  enum: ["start", "stop", "update"]
+                  description: "Action to perform on the model"
+              required: [namespace, runtimeName, model, action]
             status:
               type: object
               properties:
+                phase:
+                  type: string
+                  description: "Current phase of vLLM (Starting, Running, Stopped, Updating, etc)"
+                message:
+                  type: string
+                  description: "Status message"
+                startTime:
+                  type: string
+                  format: "date-time"
+                  description: "Timestamp when the current phase started"
                 endpoint:
                   type: string
                   description: "Service endpoint (e.g., http://llama-2-7b.default.svc.cluster.local:8000)"
-                modelStatus:
-                  type: string
-                  description: "Current status of the model"
                 currentReplicas:
                   type: integer
                   description: "Current number of running replicas"
-                lastUpdated:
-                  type: string
-                  description: "Timestamp of last status update"
+                conditions:
+                  type: array
+                  description: "List of status conditions"
+                  items:
+                    type: object
+                    required: ["type", "status"]
+                    properties:
+                      type:
+                        type: string
+                        description: "Condition type"
+                      status:
+                        type: string
+                        description: "Status of the condition, one of True, False, Unknown"
+                      lastTransitionTime:
+                        type: string
+                        format: "date-time"
+                        description: "Last time the condition transitioned from one status to another"
+                      reason:
+                        type: string
+                        description: "Reason for the condition's last transition"
+                      message:
+                        type: string
+                        description: "Human-readable message indicating details about last transition"
+      subresources:
+        status: {}  # Enable status subresource for proper status updates
   scope: Namespaced
   names:
     plural: vllms
@@ -65,10 +93,3 @@ spec:
     kind: VLLM
     shortNames:
       - vllm
-status:
-  phase:
-    type: string
-    description: "Current phase of vLLM (Running, Stopped, Updating, etc)"
-  message:
-    type: string
-    description: "Status message"

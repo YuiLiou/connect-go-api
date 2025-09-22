@@ -11,6 +11,8 @@ import (
 	"connectrpc.com/connect"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	greetv1 "connect-go/api/greetv1"
 	greetv1connect "connect-go/api/greetv1/greetv1connect"
@@ -40,8 +42,17 @@ func main() {
 		vllmAPIEndpoint = "http://vllm-router-service:80"
 	}
 
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Fatalf("Failed to get in-cluster config: %v", err)
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("Failed to create Kubernetes client: %v", err)
+	}
+
 	vllmAPI := &vllmInfra.VLLMAPI{Endpoint: vllmAPIEndpoint}
-	vllmRepo := vllmInfra.NewInMemoryVLLMRepository()
+	vllmRepo := vllmInfra.NewK8sVLLMRepository(clientset, config)
 	vllmService := vllmApp.NewVLLMServiceImpl(vllmAPI, vllmRepo)
 	vllmHandler := vllmIface.NewVLLMHandler(vllmService)
 

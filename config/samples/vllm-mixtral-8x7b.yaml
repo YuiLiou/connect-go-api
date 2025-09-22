@@ -1,34 +1,28 @@
 apiVersion: vllm.ai/v1
-kind: VLLMRuntime
+kind: VLLM
 metadata:
   name: llm-runtime-mistral
   namespace: default
 spec:
+  namespace: default
+  runtimeName: mistral-8x7b
+  model: "mistral-8x7b"
   action: start
-  model:
-    modelURL: "file:///usr/local/models/Mixtral-8x7B-Instruct-v0.1"  # 本地路徑
-    enableLoRA: false
-    enableTool: false
-    maxModelLen: 4096
-    dtype: "bfloat16"
-    maxNumSeqs: 32
+  replicas: 1
+  args: 
+    - "--disable-log-requests"
+    - "--max-model-len=4096"
+    - "--dtype=bfloat16"
+    - "--max-num-seqs=32"
+    - "--tensor-parallel-size=1"
+    - "--gpu-memory-utilization=0.8"
+  storageUri: "file:///usr/local/models/Mixtral-8x7B-Instruct-v0.1"
   vllmConfig:
-    enableChunkedPrefill: false
-    enablePrefixCaching: false
-    tensorParallelSize: 1
-    gpuMemoryUtilization: "0.8"
-    extraArgs: ["--disable-log-requests"]
-    v1: true
     port: 8000
+    v1: true
     env:
       - name: HF_HOME
-        value: "/data"  # 可選：快取目錄
-  lmCacheConfig:
-    enabled: true
-    cpuOffloadingBufferSize: "15"
-    diskOffloadingBufferSize: "0"
-    remoteUrl: "lm://cacheserver-sample.default.svc.cluster.local:80"
-    remoteSerde: "naive"
+        value: "/data"
   deploymentConfig:
     resources:
       limits:
@@ -40,12 +34,11 @@ spec:
       registry: "docker.io"
       name: "lmcache/vllm-openai:2025-05-27-v1"
       pullPolicy: "IfNotPresent"
-    replicas: 1
     deploymentStrategy: "Recreate"
-    volumeMounts:  # 掛載 PVC
+    volumeMounts:
       - name: model-storage
         mountPath: "/usr/local/models"
-    volumes:  # 定義 Volume
+    volumes:
       - name: model-storage
         persistentVolumeClaim:
           claimName: llm-models-pvc

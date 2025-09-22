@@ -33,7 +33,7 @@ func (s *VLLMServiceImpl) Start(namespace, runningName, model string) (*domain.V
 		return nil, err
 	}
 	vllm.Status = domain.StatusRunning
-	return vllm, s.repo.Save(vllm)
+	return vllm, s.repo.UpdateCRStatusToStart(namespace, runningName, model)
 }
 
 func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VLLM, error) {

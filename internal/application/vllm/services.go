@@ -32,11 +32,11 @@ func (s *VLLMServiceImpl) Start(namespace, runningName, model string) (*domain.V
 	if vllm.Status == domain.StatusRunning {
 		return nil, fmt.Errorf("model %s is already running", model)
 	}
-	if err := s.api.Start(model); err != nil {
+	if err := s.repo.UpdateCRStatusToStart(namespace, runningName, model); err != nil {
 		return nil, err
 	}
 	vllm.Status = domain.StatusRunning
-	return vllm, s.repo.UpdateCRStatusToStart(namespace, runningName, model)
+	return vllm, s.api.Start(model)
 }
 
 func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VLLM, error) {
@@ -47,11 +47,11 @@ func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VL
 	if vllm.Status == domain.StatusStopped {
 		return nil, fmt.Errorf("model %s is already stopped", model)
 	}
-	if err := s.api.Stop(model); err != nil {
+	if err := s.repo.Save(vllm); err != nil {
 		return nil, err
 	}
 	vllm.Status = domain.StatusStopped
-	return vllm, s.repo.Save(vllm)
+	return vllm, s.api.Stop(model)
 }
 
 func (s *VLLMServiceImpl) Update(namespace, runningName, model string) (*domain.VLLM, error) {
@@ -59,9 +59,9 @@ func (s *VLLMServiceImpl) Update(namespace, runningName, model string) (*domain.
 	if err != nil {
 		return nil, err
 	}
-	if err := s.api.Update(model); err != nil {
+	if err := s.repo.Save(vllm); err != nil {
 		return nil, err
 	}
 	vllm.Status = domain.StatusUpdating
-	return vllm, s.repo.Save(vllm)
+	return vllm, s.api.Update(model)
 }

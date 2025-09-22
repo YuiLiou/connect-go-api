@@ -32,11 +32,14 @@ func (s *VLLMServiceImpl) Start(namespace, runningName, model string) (*domain.V
 	if vllm.Status == domain.StatusRunning {
 		return nil, fmt.Errorf("model %s is already running", model)
 	}
-	if err := s.repo.UpdateCRStatusToStart(namespace, runningName, model); err != nil {
+	if err := s.api.Start(model); err != nil {
 		return nil, err
 	}
-	vllm.Status = domain.StatusRunning
-	return vllm, s.api.Start(model)
+	refreshVLLM, err := s.repo.FindByModel(namespace, runningName, model)
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh VLLM status after start: %w", err)
+	}
+	return refreshVLLM, nil
 }
 
 func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VLLM, error) {
@@ -47,21 +50,27 @@ func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VL
 	if vllm.Status == domain.StatusStopped {
 		return nil, fmt.Errorf("model %s is already stopped", model)
 	}
-	if err := s.repo.Save(vllm); err != nil {
+	if err := s.api.Stop(model); err != nil {
 		return nil, err
 	}
-	vllm.Status = domain.StatusStopped
-	return vllm, s.api.Stop(model)
+	refreshVLLM, err := s.repo.FindByModel(namespace, runningName, model)
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh VLLM status after stop: %w", err)
+	}
+	return refreshVLLM, nil
 }
 
 func (s *VLLMServiceImpl) Update(namespace, runningName, model string) (*domain.VLLM, error) {
-	vllm, err := s.repo.FindByModel(namespace, runningName, model)
+	_, err := s.repo.FindByModel(namespace, runningName, model)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.repo.Save(vllm); err != nil {
+	if err := s.api.Update(model); err != nil {
 		return nil, err
 	}
-	vllm.Status = domain.StatusUpdating
-	return vllm, s.api.Update(model)
+	refreshVLLM, err := s.repo.FindByModel(namespace, runningName, model)
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh VLLM status after update: %w", err)
+	}
+	return refreshVLLM, nil
 }

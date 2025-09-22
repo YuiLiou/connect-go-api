@@ -1,6 +1,10 @@
 package vllm
 
-import "fmt"
+import (
+	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 type Status string
 
@@ -25,12 +29,29 @@ type VLLM struct {
 	RuntimeName string
 }
 
+// VLLMStatus represents the status of a VLLM CR
+type VLLMStatus struct {
+	Phase         string
+	Message       string
+	StartTime     metav1.Time
+	Conditions    []VLLMCondition
+	ReadyReplicas int
+}
+
+// VLLMCondition represents a status condition
+type VLLMCondition struct {
+	Type               string
+	Status             string
+	LastTransitionTime metav1.Time
+	Reason             string
+	Message            string
+}
+
 func NewVLLM(namespace, runtimeName, model string) *VLLM {
 	return &VLLM{
 		Namespace:   namespace,
 		RuntimeName: runtimeName,
 		Model:       model,
-		Status:      StatusStopped,
 	}
 }
 

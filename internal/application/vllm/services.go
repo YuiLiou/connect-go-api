@@ -18,7 +18,10 @@ type VLLMServiceImpl struct {
 }
 
 func NewVLLMServiceImpl(api *infra.VLLMAPI, repo infra.VLLMRepository) *VLLMServiceImpl {
-	return &VLLMServiceImpl{api: api, repo: repo}
+	return &VLLMServiceImpl{
+		api:  api,
+		repo: repo,
+	}
 }
 
 func (s *VLLMServiceImpl) Start(namespace, runningName, model string) (*domain.VLLM, error) {

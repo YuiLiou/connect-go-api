@@ -20,7 +20,6 @@ type VLLMRepository interface {
 	UpdateCRStatusToStart(namespace, name, model string) error
 }
 
-// K8sVLLMRepository implements VLLMRepository for actual Kubernetes interactions
 type K8sVLLMRepository struct {
 	client kubernetes.Interface
 	config *rest.Config
@@ -78,16 +77,10 @@ func (r *K8sVLLMRepository) UpdateCRStatusToStart(namespace, name, model string)
 		return fmt.Errorf("failed to get dynamic client: %w", err)
 	}
 
-	// Define the GVR (GroupVersionResource) for your CR
-	gvr := types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	}
-
 	// Patch the CR status
 	_, err = dynamicClient.Resource(r.getVLLMGVR()).
-		Namespace(gvr.Namespace).
-		Patch(ctx, gvr.Name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
+		Namespace(namespace).
+		Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		return fmt.Errorf("failed to patch CR status: %w", err)
 	}

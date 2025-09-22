@@ -53,14 +53,12 @@ func (r *K8sVLLMRepository) UpdateCRStatusToStart(namespace, name, model string)
 			"phase":     "Starting",
 			"message":   fmt.Sprintf("vLLM model '%s' is starting", model),
 			"startTime": now,
-			"conditions": []map[string]interface{}{
-				{
-					"type":               "Starting",
-					"status":             "True",
-					"lastTransitionTime": now,
-					"reason":             "ModelStartRequested",
-					"message":            "vLLM model start operation initiated",
-				},
+			"condition": map[string]interface{}{
+				"type":               "Starting",
+				"status":             "True",
+				"lastTransitionTime": now,
+				"reason":             "ModelStartRequested",
+				"message":            "vLLM model start operation initiated",
 			},
 		},
 	}

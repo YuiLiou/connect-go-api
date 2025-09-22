@@ -41,11 +41,11 @@ type ResourceRequirements struct {
 }
 
 type VLLMStatus struct {
-	Phase         string             `json:"phase"`
-	Message       string             `json:"message"`
-	StartTime     metav1.Time        `json:"startTime,omitempty"`
-	Conditions    []metav1.Condition `json:"conditions,omitempty"`
-	ReadyReplicas int                `json:"readyReplicas,omitempty"`
+	Phase         string           `json:"phase"`
+	Message       string           `json:"message"`
+	StartTime     metav1.Time      `json:"startTime,omitempty"`
+	Condition     metav1.Condition `json:"condition,omitempty"`
+	ReadyReplicas int              `json:"readyReplicas,omitempty"`
 }
 
 // DeepCopyObject is required to implement client.Object

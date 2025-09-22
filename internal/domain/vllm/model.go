@@ -34,7 +34,7 @@ type VLLMStatus struct {
 	Phase         string
 	Message       string
 	StartTime     metav1.Time
-	Conditions    []VLLMCondition
+	Condition     VLLMCondition
 	ReadyReplicas int
 }
 

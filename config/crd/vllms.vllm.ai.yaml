@@ -61,9 +61,9 @@ spec:
                 currentReplicas:
                   type: integer
                   description: "Current number of running replicas"
-                conditions:
-                  type: array
-                  description: "List of status conditions"
+                condition:
+                  type: object
+                  description: "Status condition"
                   items:
                     type: object
                     required: ["type", "status"]

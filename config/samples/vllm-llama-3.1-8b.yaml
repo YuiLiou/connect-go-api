@@ -4,6 +4,7 @@ metadata:
   name: llm-runtime-llama
   namespace: default
 spec:
+  action: start
   model:
     modelURL: "file:///usr/local/models/llama-3.1-8b"  # 本地路徑
     enableLoRA: false

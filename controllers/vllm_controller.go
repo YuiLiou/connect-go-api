@@ -23,14 +23,29 @@ type VLLMCR struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec struct {
-		Model  string `json:"model"`
-		Action string `json:"action"` // start, stop, update
-	} `json:"spec"`
-	Status struct {
-		Phase   string `json:"phase"`
-		Message string `json:"message"`
-	} `json:"status"`
+	Spec   VLLMSpec   `json:"spec"`
+	Status VLLMStatus `json:"status"`
+}
+
+type VLLMSpec struct {
+	Model     string               `json:"model"`
+	Action    string               `json:"action"` // start, stop, update
+	Replicas  int                  `json:"replicas,omitempty"`
+	Resources ResourceRequirements `json:"resources,omitempty"`
+	Timeout   int                  `json:"timeout,omitempty"`
+}
+
+type ResourceRequirements struct {
+	CPU    string `json:"cpu,omitempty"`
+	Memory string `json:"memory,omitempty"`
+}
+
+type VLLMStatus struct {
+	Phase         string             `json:"phase"`
+	Message       string             `json:"message"`
+	StartTime     metav1.Time        `json:"startTime,omitempty"`
+	Conditions    []metav1.Condition `json:"conditions,omitempty"`
+	ReadyReplicas int                `json:"readyReplicas,omitempty"`
 }
 
 // DeepCopyObject is required to implement client.Object

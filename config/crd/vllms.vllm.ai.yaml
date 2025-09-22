@@ -3,6 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   name: vllms.vllm.ai
 spec:
+  action: string
   group: vllm.ai
   versions:
     - name: v1

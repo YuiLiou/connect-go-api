@@ -4,6 +4,7 @@ metadata:
   name: llm-runtime-mistral
   namespace: default
 spec:
+  action: start
   model:
     modelURL: "file:///usr/local/models/Mixtral-8x7B-Instruct-v0.1"  # 本地路徑
     enableLoRA: false

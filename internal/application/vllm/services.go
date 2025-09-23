@@ -9,7 +9,7 @@ import (
 type VLLMService interface {
 	Start(namespace, runtimeName, model string) (*domain.VLLM, error)
 	Stop(namespace, runtimeName, model string) (*domain.VLLM, error)
-	Update(namespace, runtimeName, model string) (*domain.VLLM, error)
+	Get(namespace string) ([]domain.VLLMResource, error)
 }
 
 type VLLMServiceImpl struct {
@@ -32,7 +32,7 @@ func (s *VLLMServiceImpl) Start(namespace, runningName, model string) (*domain.V
 	if vllm.Status == domain.StatusRunning {
 		return nil, fmt.Errorf("model %s is already running", model)
 	}
-	if err := s.api.Start(model); err != nil {
+	if err := s.api.Start(namespace, model); err != nil {
 		return nil, err
 	}
 	refreshVLLM, err := s.repo.FindByModel(namespace, runningName, model)
@@ -50,7 +50,7 @@ func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VL
 	if vllm.Status == domain.StatusStopped {
 		return nil, fmt.Errorf("model %s is already stopped", model)
 	}
-	if err := s.api.Stop(model); err != nil {
+	if err := s.api.Stop(namespace, model); err != nil {
 		return nil, err
 	}
 	refreshVLLM, err := s.repo.FindByModel(namespace, runningName, model)
@@ -60,17 +60,6 @@ func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VL
 	return refreshVLLM, nil
 }
 
-func (s *VLLMServiceImpl) Update(namespace, runningName, model string) (*domain.VLLM, error) {
-	_, err := s.repo.FindByModel(namespace, runningName, model)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.api.Update(model); err != nil {
-		return nil, err
-	}
-	refreshVLLM, err := s.repo.FindByModel(namespace, runningName, model)
-	if err != nil {
-		return nil, fmt.Errorf("failed to refresh VLLM status after update: %w", err)
-	}
-	return refreshVLLM, nil
+func (s *VLLMServiceImpl) Get(namespace string) ([]domain.VLLMResource, error) {
+	return s.api.Get(namespace)
 }

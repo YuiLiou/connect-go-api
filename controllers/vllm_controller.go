@@ -90,8 +90,8 @@ func (r *VLLMReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			cr.Status.Phase = "Failed"
 			cr.Status.Message = fmt.Sprintf("Failed to stop model: %v", err)
 		}
-	case "update":
-		_, err = r.VLLMService.Update(cr.Spec.Model, cr.Spec.Action, "")
+	case "get":
+		_, err = r.VLLMService.Get(cr.Spec.Model)
 		if err == nil {
 			cr.Status.Phase = "Updated"
 			cr.Status.Message = "vLLM model updated successfully"

@@ -22,6 +22,12 @@ const (
 	ActionUpdate = "update"
 )
 
+type VLLMResource struct {
+	Name  string
+	Model string
+	Phase string
+}
+
 type VLLM struct {
 	Model       string
 	Status      Status

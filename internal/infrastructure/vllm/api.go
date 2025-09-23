@@ -1,6 +1,7 @@
 package vllm
 
 import (
+	domain "connect-go/internal/domain/vllm"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -62,7 +63,7 @@ func loadAndValidateYAML(model string) (*unstructured.Unstructured, error) {
 }
 
 // Start creates or updates a vLLM resource in Kubernetes to initiate the start action.
-func (a *VLLMAPI) Start(model string) error {
+func (a *VLLMAPI) Start(namespace, model string) error {
 	obj, err := loadAndValidateYAML(model)
 	if err != nil {
 		return err
@@ -101,8 +102,11 @@ func (a *VLLMAPI) Start(model string) error {
 		return err
 	}
 
+	if namespace == "" {
+		namespace = "default"
+	}
+
 	ctx := context.Background()
-	namespace := "default" // Consider making this configurable.
 	resourceClient := dynamicClient.Resource(vllmGVR).Namespace(namespace)
 
 	// Check if the resource exists.
@@ -146,7 +150,7 @@ func (a *VLLMAPI) Start(model string) error {
 }
 
 // Stop updates an existing vLLM resource in Kubernetes to initiate the stop action.
-func (a *VLLMAPI) Stop(model string) error {
+func (a *VLLMAPI) Stop(namespace, model string) error {
 	obj, err := loadAndValidateYAML(model)
 	if err != nil {
 		return err
@@ -161,8 +165,11 @@ func (a *VLLMAPI) Stop(model string) error {
 		return err
 	}
 
+	if namespace == "" {
+		namespace = "default"
+	}
+
 	ctx := context.Background()
-	namespace := "default" // Consider making this configurable.
 	resourceClient := dynamicClient.Resource(vllmGVR).Namespace(namespace)
 
 	// Check if the resource exists.
@@ -195,6 +202,48 @@ func (a *VLLMAPI) Stop(model string) error {
 	return nil
 }
 
-func (a *VLLMAPI) Update(model string) error {
-	return nil
+// Get lists and displays all vLLM custom resources in the namespace that are currently in the "Running" status phase.
+func (a *VLLMAPI) Get(namespace string) ([]domain.VLLMResource, error) {
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	dynamicClient, err := a.getDynamicClient()
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	resourceClient := dynamicClient.Resource(vllmGVR).Namespace(namespace)
+
+	// List all vLLM resources.
+	list, err := resourceClient.List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list VLLM resources: %w", err)
+	}
+
+	var runningResources []domain.VLLMResource
+	for _, item := range list.Items {
+		phase, foundPhase, err := unstructured.NestedString(item.Object, "status", "phase")
+		if err != nil || !foundPhase || phase != "Running" {
+			continue
+		}
+
+		model, foundModel, err := unstructured.NestedString(item.Object, "spec", "model")
+		if err != nil || !foundModel {
+			model = "unknown"
+		}
+
+		resourceName := item.GetName()
+		runningResources = append(runningResources, domain.VLLMResource{
+			Name:  resourceName,
+			Model: model,
+			Phase: phase,
+		})
+	}
+	if len(runningResources) == 0 {
+		fmt.Println("No running vLLM resources found.")
+	}
+
+	return runningResources, nil
 }

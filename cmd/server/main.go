@@ -64,7 +64,7 @@ func main() {
 
 	mux.HandleFunc("/v1/vllm/start", vllmHandler.Start)
 	mux.HandleFunc("/v1/vllm/stop", vllmHandler.Stop)
-	mux.HandleFunc("/v1/vllm/update", vllmHandler.Update)
+	mux.HandleFunc("/v1/vllm/get", vllmHandler.Get)
 
 	server := &http.Server{
 		Addr:    "localhost:8799",

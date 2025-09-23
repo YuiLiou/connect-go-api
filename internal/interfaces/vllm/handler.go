@@ -7,10 +7,14 @@ import (
 	"net/http"
 )
 
-type UpdateRequest struct {
+type SwitchRequest struct {
 	Namespace   string `json:"namespace"`
 	RuntimeName string `json:"runtimeName"`
 	Model       string `json:"model"`
+}
+
+type GetRequest struct {
+	Namespace string `json:"namespace"`
 }
 
 type VLLMHandler struct {
@@ -22,7 +26,7 @@ func NewVLLMHandler(service vllm.VLLMService) *VLLMHandler {
 }
 
 func (h *VLLMHandler) Start(w http.ResponseWriter, r *http.Request) {
-	var req UpdateRequest
+	var req SwitchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
@@ -40,7 +44,7 @@ func (h *VLLMHandler) Start(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *VLLMHandler) Stop(w http.ResponseWriter, r *http.Request) {
-	var req UpdateRequest
+	var req SwitchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
@@ -57,27 +61,50 @@ func (h *VLLMHandler) Stop(w http.ResponseWriter, r *http.Request) {
 	h.writeResponse(w, req, vllm.Status, "vLLM stopped")
 }
 
-func (h *VLLMHandler) Update(w http.ResponseWriter, r *http.Request) {
-	var req UpdateRequest
+func (h *VLLMHandler) Get(w http.ResponseWriter, r *http.Request) {
+	var req GetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if req.Namespace == "" || req.RuntimeName == "" || req.Model == "" {
-		http.Error(w, "All fields are required", http.StatusBadRequest)
+	if req.Namespace == "" {
+		http.Error(w, "Namespace is required", http.StatusBadRequest)
 		return
 	}
-	vllm, err := h.Service.Update(req.Namespace, req.RuntimeName, req.Model)
+	vllms, err := h.Service.Get(req.Namespace)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	h.writeResponse(w, req, vllm.Status, "vLLM updated")
+	statuses := make([]string, len(vllms))
+	models := make([]string, len(vllms))
+	runtimeNames := make([]string, len(vllms))
+	for i, v := range vllms {
+		statuses[i] = string(v.Phase)
+		models[i] = v.Model
+		runtimeNames[i] = v.Name
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(struct {
+		Message      string   `json:"message"`
+		Namespace    string   `json:"namespace"`
+		RuntimeNames []string `json:"runtimeNames"`
+		Models       []string `json:"model"`
+		Statuses     []string `json:"statuses"`
+	}{
+		Message:      "vLLM updated",
+		Namespace:    req.Namespace,
+		RuntimeNames: runtimeNames,
+		Models:       models,
+		Statuses:     statuses,
+	}); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
-func (h *VLLMHandler) writeResponse(w http.ResponseWriter, req UpdateRequest, status domain.Status, message string) {
+func (h *VLLMHandler) writeResponse(w http.ResponseWriter, req SwitchRequest, status domain.Status, message string) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(struct {
+	if err := json.NewEncoder(w).Encode(struct {
 		Message     string `json:"message"`
 		Namespace   string `json:"namespace"`
 		RuntimeName string `json:"runtimeName"`
@@ -89,5 +116,7 @@ func (h *VLLMHandler) writeResponse(w http.ResponseWriter, req UpdateRequest, st
 		RuntimeName: req.RuntimeName,
 		Model:       req.Model,
 		Status:      string(status),
-	})
+	}); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }

@@ -41,6 +41,51 @@ spec:
                   type: string
                   enum: ["start", "stop", "update"]
                   description: "Action to perform on the model"
+                vllmConfig:
+                  type: object
+                  properties:
+                    port:
+                      type: integer
+                    v1:
+                      type: boolean
+                    env:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          value:
+                            type: string
+
+                deploymentConfig:
+                  type: object
+                  properties:
+                    resources:
+                      type: object
+                    deviceRequests:
+                      type: array
+                      items:
+                        type: object
+                    image:
+                      type: object
+                      properties:
+                        registry:
+                          type: string
+                        name:
+                          type: string
+                        pullPolicy:
+                          type: string
+                    deploymentStrategy:
+                      type: string
+                    volumeMounts:
+                      type: array
+                      items:
+                        type: object
+                    volumes:
+                      type: array
+                      items:
+                        type: object
               required: [namespace, runtimeName, model, action]
             status:
               type: object

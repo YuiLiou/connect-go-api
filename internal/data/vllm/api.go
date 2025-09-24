@@ -8,8 +8,7 @@ import (
 	"os"
 	"os/exec"
 
-	"sigs.k8s.io/yaml"
-
+	"go.yaml.in/yaml/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -219,32 +218,44 @@ func (a *VLLMAPI) Get(namespace string) ([]domain.VLLMResource, error) {
 	return runningResources, nil
 }
 
-func (a *VLLMAPI) Create(namespace, model, runtimeName string) error {
-	// Define parameters
-	name := "llm-runtime-mistral"
-	storageUri := "file:///usr/local/models/Mixtral-8x7B-Instruct-v0.1"
-	replicas := 1
-	yamlFile := fmt.Sprintf("%s.yaml", name)
+type CreateParams struct {
+	Namespace              string
+	Name                   string
+	Model                  string
+	RuntimeName            string
+	StorageUri             string
+	DeviceIDs              []string
+	GPUMemoryUtilization   float64
+	MaxModelLen            int64
+	TensorParallelSize     int64
+	EnablePromptTokenStats bool
+	Replicas               int
+}
 
-	// Create the CR struct
+// Create and apply VLLM CR
+func (a *VLLMAPI) Create(p CreateParams) error {
+	// Build args
+	args := buildArgs(p)
+
+	// Build DeviceRequests
+	deviceRequests := buildDeviceRequests(p.DeviceIDs)
+
+	// CR struct
 	cr := domain.VLLMCR{
 		APIVersion: "vllm.ai/v1",
 		Kind:       "VLLM",
 		Metadata: map[string]string{
-			"name":      name,
-			"namespace": namespace,
+			"name":      p.Name,
+			"namespace": p.Namespace,
 		},
 		Spec: map[string]interface{}{
-			"namespace":   namespace,
-			"model":       model,
-			"runtimeName": runtimeName,
-			"replicas":    replicas,
-			"args": []string{
-				"--disable-log-requests",
-				"--max-model-len=4096",
-				"--dtype=bfloat16",
-			},
-			"storageUri": storageUri,
+			"namespace":   p.Namespace,
+			"model":       p.Model,
+			"runtimeName": p.RuntimeName,
+			"replicas":    p.Replicas,
+			"args":        args,
+			"storageUri":  p.StorageUri,
+			"action":      "start",
 			"vllmConfig": map[string]interface{}{
 				"port": 8000,
 				"v1":   true,
@@ -252,35 +263,81 @@ func (a *VLLMAPI) Create(namespace, model, runtimeName string) error {
 					{"name": "HF_HOME", "value": "/data"},
 				},
 			},
+			"deploymentConfig": map[string]interface{}{
+				"resources": map[string]interface{}{
+					"limits": map[string]string{
+						"nvidia.com/gpu": fmt.Sprintf("%d", len(p.DeviceIDs)),
+					},
+					"requests": map[string]string{
+						"cpu":    "10",
+						"memory": "32Gi",
+					},
+				},
+				"deviceRequests": deviceRequests,
+				"image": map[string]string{
+					"registry":   "docker.io",
+					"name":       "lmcache/vllm-openai:2025-05-27-v1",
+					"pullPolicy": "IfNotPresent",
+				},
+			},
 		},
 	}
 
-	// Marshal to YAML and write to file
+	// Write YAML
+	yamlFile := fmt.Sprintf("%s.yaml", p.Name)
+	if err := writeYAML(cr, yamlFile); err != nil {
+		return err
+	}
+
+	// Apply CR
+	return applyYAML(yamlFile)
+}
+
+func buildArgs(p CreateParams) []string {
+	args := []string{
+		fmt.Sprintf("--gpu-memory-utilization=%.1f", p.GPUMemoryUtilization),
+		fmt.Sprintf("--max-model-len=%d", p.MaxModelLen),
+		fmt.Sprintf("--tensor-parallel-size=%d", p.TensorParallelSize),
+	}
+	if p.EnablePromptTokenStats {
+		args = append(args, "--enable-prompt-tokens-details")
+	}
+	return args
+}
+
+func buildDeviceRequests(deviceIDs []string) []map[string]interface{} {
+	if len(deviceIDs) == 0 {
+		return nil
+	}
+	return []map[string]interface{}{
+		{
+			"driver":       "nvidia",
+			"count":        len(deviceIDs),
+			"capabilities": []string{"gpu", "nvidia-compute"},
+			"deviceIDs":    deviceIDs,
+		},
+	}
+}
+
+func writeYAML(cr interface{}, file string) error {
 	yamlBytes, err := yaml.Marshal(cr)
 	if err != nil {
-		fmt.Println("Failed to marshal YAML:", err)
-		return err
+		return fmt.Errorf("failed to marshal YAML: %w", err)
 	}
-
-	if err := os.WriteFile(yamlFile, yamlBytes, 0644); err != nil {
-		fmt.Println("Failed to write YAML file:", err)
-		return err
+	if err := os.WriteFile(file, yamlBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write YAML file: %w", err)
 	}
+	fmt.Printf("✅ VLLM CR YAML generated: %s\n", file)
+	return nil
+}
 
-	fmt.Printf("VLLM CR YAML generated: %s\n", yamlFile)
-
-	// exec kubectl apply -f <yamlFile>
-	cmd := exec.Command("kubectl", "apply", "-f", yamlFile)
-
-	// keep current environment variables, e.g., KUBECONFIG
+func applyYAML(file string) error {
+	cmd := exec.Command("kubectl", "apply", "-f", file)
 	cmd.Env = os.Environ()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("Error applying YAML: %v\n", err)
-		fmt.Printf("kubectl output:\n%s\n", string(output))
-		return err
+		return fmt.Errorf("kubectl apply error: %v\n%s", err, string(output))
 	}
-
-	fmt.Printf("kubectl apply output:\n%s\n", string(output))
+	fmt.Printf("✅ kubectl apply success:\n%s\n", string(output))
 	return nil
 }

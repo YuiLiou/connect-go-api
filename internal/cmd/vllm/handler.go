@@ -1,8 +1,8 @@
 package vllm
 
 import (
-	"connect-go/internal/application/vllm"
-	domain "connect-go/internal/domain/vllm"
+	"connect-go/internal/app/vllm"
+	domain "connect-go/internal/core/vllm"
 	"encoding/json"
 	"net/http"
 )

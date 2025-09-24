@@ -16,9 +16,9 @@ import (
 
 	greetv1 "connect-go/api/greetv1"
 	greetv1connect "connect-go/api/greetv1/greetv1connect"
-	vllmApp "connect-go/internal/application/vllm"
-	vllmInfra "connect-go/internal/infrastructure/vllm"
-	vllmIface "connect-go/internal/interfaces/vllm"
+	vllmApp "connect-go/internal/app/vllm"
+	vllmIface "connect-go/internal/cmd/vllm"
+	vllmInfra "connect-go/internal/data/vllm"
 )
 
 type GreetServer struct{}

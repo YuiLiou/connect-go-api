@@ -10,7 +10,7 @@ package controllers
 // 	"sigs.k8s.io/controller-runtime/pkg/client"
 // 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-// 	app "connect-go/internal/application/vllm"
+// 	app "connect-go/internal/app/vllm"
 // )
 
 // type VLLMReconciler struct {

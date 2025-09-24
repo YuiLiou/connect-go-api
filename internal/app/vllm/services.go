@@ -1,14 +1,14 @@
 package vllm
 
 import (
-	domain "connect-go/internal/domain/vllm"
-	infra "connect-go/internal/infrastructure/vllm"
+	domain "connect-go/internal/core/vllm"
+	infra "connect-go/internal/data/vllm"
 	"fmt"
 )
 
 type VLLMService interface {
-	Start(namespace, runtimeName, model string) (*domain.VLLM, error)
-	Stop(namespace, runtimeName, model string) (*domain.VLLM, error)
+	Start(namespace, runtimeName, model string) (*domain.VLLMUseCase, error)
+	Stop(namespace, runtimeName, model string) (*domain.VLLMUseCase, error)
 	Get(namespace string) ([]domain.VLLMResource, error)
 }
 
@@ -24,7 +24,7 @@ func NewVLLMServiceImpl(api *infra.VLLMAPI, repo infra.VLLMRepository) *VLLMServ
 	}
 }
 
-func (s *VLLMServiceImpl) Start(namespace, runningName, model string) (*domain.VLLM, error) {
+func (s *VLLMServiceImpl) Start(namespace, runningName, model string) (*domain.VLLMUseCase, error) {
 	vllm, err := s.repo.FindByModel(namespace, runningName, model)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (s *VLLMServiceImpl) Start(namespace, runningName, model string) (*domain.V
 	return refreshVLLM, nil
 }
 
-func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VLLM, error) {
+func (s *VLLMServiceImpl) Stop(namespace, runningName, model string) (*domain.VLLMUseCase, error) {
 	vllm, err := s.repo.FindByModel(namespace, runningName, model)
 	if err != nil {
 		return nil, err

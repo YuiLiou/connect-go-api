@@ -1,7 +1,7 @@
 package vllm
 
 import (
-	"connect-go/internal/domain/vllm"
+	"connect-go/internal/core/vllm"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,8 +15,8 @@ import (
 )
 
 type VLLMRepository interface {
-	FindByModel(namespace, runtimeName, model string) (*vllm.VLLM, error)
-	Save(vllm *vllm.VLLM) error
+	FindByModel(namespace, runtimeName, model string) (*vllm.VLLMUseCase, error)
+	Save(vllm *vllm.VLLMUseCase) error
 	UpdateCRStatusToStart(namespace, name, model string) error
 }
 
@@ -33,11 +33,11 @@ func NewK8sVLLMRepository(client kubernetes.Interface, config *rest.Config) *K8s
 }
 
 // Implement the interface methods for K8sVLLMRepository
-func (r *K8sVLLMRepository) FindByModel(namespace, runtimeName, model string) (*vllm.VLLM, error) {
+func (r *K8sVLLMRepository) FindByModel(namespace, runtimeName, model string) (*vllm.VLLMUseCase, error) {
 	return vllm.NewVLLM(namespace, runtimeName, model), nil
 }
 
-func (r *K8sVLLMRepository) Save(vllm *vllm.VLLM) error {
+func (r *K8sVLLMRepository) Save(vllm *vllm.VLLMUseCase) error {
 	return nil
 }
 

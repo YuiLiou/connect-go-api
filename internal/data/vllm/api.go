@@ -1,7 +1,7 @@
 package vllm
 
 import (
-	domain "connect-go/internal/domain/vllm"
+	domain "connect-go/internal/core/vllm"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,14 +17,20 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type VLLMAPI struct {
-	Endpoint string
-}
-
 var vllmGVR = schema.GroupVersionResource{
 	Group:    "vllm.ai",
 	Version:  "v1",
 	Resource: "vllms",
+}
+
+type VLLMAPI struct {
+	Endpoint string
+}
+
+func NewVLLMAPI(endpoint string) *VLLMAPI {
+	return &VLLMAPI{
+		Endpoint: endpoint,
+	}
 }
 
 // Start creates or updates a vLLM resource in Kubernetes to initiate the start action.

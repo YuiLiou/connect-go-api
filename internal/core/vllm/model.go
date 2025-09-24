@@ -28,7 +28,7 @@ type VLLMResource struct {
 	Phase string
 }
 
-type VLLM struct {
+type VLLMUseCase struct {
 	Model       string
 	Status      Status
 	Namespace   string
@@ -60,15 +60,15 @@ type VLLMCR struct {
 	Spec       map[string]interface{} `yaml:"spec"`
 }
 
-func NewVLLM(namespace, runtimeName, model string) *VLLM {
-	return &VLLM{
+func NewVLLM(namespace, runtimeName, model string) *VLLMUseCase {
+	return &VLLMUseCase{
 		Namespace:   namespace,
 		RuntimeName: runtimeName,
 		Model:       model,
 	}
 }
 
-func (v *VLLM) Start() error {
+func (v *VLLMUseCase) Start() error {
 	if v.Status == StatusRunning {
 		return fmt.Errorf("model %s is already running", v.Model)
 	}
@@ -76,7 +76,7 @@ func (v *VLLM) Start() error {
 	return nil
 }
 
-func (v *VLLM) Stop() error {
+func (v *VLLMUseCase) Stop() error {
 	if v.Status == StatusStopped {
 		return fmt.Errorf("model %s is already stopped", v.Model)
 	}
@@ -84,7 +84,7 @@ func (v *VLLM) Stop() error {
 	return nil
 }
 
-func (v *VLLM) Update() error {
+func (v *VLLMUseCase) Update() error {
 	if v.Status == StatusUpdating {
 		return fmt.Errorf("model %s is already updating", v.Model)
 	}

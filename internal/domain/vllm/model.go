@@ -53,6 +53,13 @@ type VLLMCondition struct {
 	Message            string
 }
 
+type VLLMCR struct {
+	APIVersion string                 `yaml:"apiVersion"`
+	Kind       string                 `yaml:"kind"`
+	Metadata   map[string]string      `yaml:"metadata"`
+	Spec       map[string]interface{} `yaml:"spec"`
+}
+
 func NewVLLM(namespace, runtimeName, model string) *VLLM {
 	return &VLLM{
 		Namespace:   namespace,

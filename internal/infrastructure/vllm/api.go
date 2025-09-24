@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+
+	yaml "sigs.k8s.io/yaml"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	runtimeYaml "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
@@ -50,7 +53,7 @@ func loadAndValidateYAML(model string) (*unstructured.Unstructured, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read YAML file %q: %w", yamlFileName, err)
 	}
-	decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	decoder := runtimeYaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	obj := &unstructured.Unstructured{}
 	_, gvk, err := decoder.Decode(yamlFile, nil, obj)
 	if err != nil {
@@ -246,4 +249,70 @@ func (a *VLLMAPI) Get(namespace string) ([]domain.VLLMResource, error) {
 	}
 
 	return runningResources, nil
+}
+
+func (a *VLLMAPI) Create(namespace, model, runtimeName string) error {
+	// Define parameters
+	name := "llm-runtime-mistral"
+	storageUri := "file:///usr/local/models/Mixtral-8x7B-Instruct-v0.1"
+	replicas := 1
+	yamlFile := fmt.Sprintf("%s.yaml", name)
+
+	// Create the CR struct
+	cr := domain.VLLMCR{
+		APIVersion: "vllm.ai/v1",
+		Kind:       "VLLM",
+		Metadata: map[string]string{
+			"name":      name,
+			"namespace": namespace,
+		},
+		Spec: map[string]interface{}{
+			"namespace":   namespace,
+			"model":       model,
+			"runtimeName": runtimeName,
+			"replicas":    replicas,
+			"args": []string{
+				"--disable-log-requests",
+				"--max-model-len=4096",
+				"--dtype=bfloat16",
+			},
+			"storageUri": storageUri,
+			"vllmConfig": map[string]interface{}{
+				"port": 8000,
+				"v1":   true,
+				"env": []map[string]string{
+					{"name": "HF_HOME", "value": "/data"},
+				},
+			},
+		},
+	}
+
+	// Marshal to YAML and write to file
+	yamlBytes, err := yaml.Marshal(cr)
+	if err != nil {
+		fmt.Println("Failed to marshal YAML:", err)
+		return err
+	}
+
+	if err := os.WriteFile(yamlFile, yamlBytes, 0644); err != nil {
+		fmt.Println("Failed to write YAML file:", err)
+		return err
+	}
+
+	fmt.Printf("VLLM CR YAML generated: %s\n", yamlFile)
+
+	// exec kubectl apply -f <yamlFile>
+	cmd := exec.Command("kubectl", "apply", "-f", yamlFile)
+
+	// keep current environment variables, e.g., KUBECONFIG
+	cmd.Env = os.Environ()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error applying YAML: %v\n", err)
+		fmt.Printf("kubectl output:\n%s\n", string(output))
+		return err
+	}
+
+	fmt.Printf("kubectl apply output:\n%s\n", string(output))
+	return nil
 }

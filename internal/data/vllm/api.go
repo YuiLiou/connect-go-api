@@ -2,72 +2,30 @@ package vllm
 
 import (
 	domain "connect-go/internal/core/vllm"
-	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 
 	"go.yaml.in/yaml/v2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-var vllmGVR = schema.GroupVersionResource{
-	Group:    "vllm.ai",
-	Version:  "v1",
-	Resource: "vllms",
-}
-
 type VLLMAPI struct {
-	Endpoint string
+	Endpoint   string
+	LLMDClient *LLMDClient // llm-d infra model service client
 }
 
-func NewVLLMAPI(endpoint string) *VLLMAPI {
+func NewVLLMAPI(endpoint string, llmdClient *LLMDClient) *VLLMAPI {
 	return &VLLMAPI{
-		Endpoint: endpoint,
+		Endpoint:   endpoint,
+		LLMDClient: llmdClient,
 	}
 }
 
-// Start creates or updates a vLLM resource in Kubernetes to initiate the start action.
+// Start creates or updates a vLLM resource using llm-d infra model service.
 func (a *VLLMAPI) Start(namespace, model string) error {
+	// Load YAML configuration
 	obj, err := loadAndValidateYAML(model)
-	if err != nil {
-		return err
-	}
-	resourceName := obj.GetName()
-	if resourceName == "" {
-		return fmt.Errorf("YAML must specify metadata.name for the resource")
-	}
-
-	// Override model and runtimeName if necessary.
-	modelInYaml, found, err := unstructured.NestedString(obj.Object, "spec", "model")
-	if err != nil {
-		return fmt.Errorf("failed to get spec.model from YAML: %w", err)
-	}
-	if !found || model != modelInYaml {
-		if !found {
-			fmt.Printf("spec.model not found in YAML; setting to %s\n", model)
-		} else {
-			fmt.Printf("Overriding spec.model from %s to %s\n", modelInYaml, model)
-		}
-		if err := unstructured.SetNestedField(obj.Object, model, "spec", "model"); err != nil {
-			return fmt.Errorf("failed to set spec.model: %w", err)
-		}
-		if err := unstructured.SetNestedField(obj.Object, model, "spec", "runtimeName"); err != nil {
-			return fmt.Errorf("failed to set spec.runtimeName: %w", err)
-		}
-	}
-
-	// Set action to "start" in the object (for creation or as base for patch).
-	if err := unstructured.SetNestedField(obj.Object, "start", "spec", "action"); err != nil {
-		return fmt.Errorf("failed to set spec.action: %w", err)
-	}
-
-	dynamicClient, err := a.getDynamicClient()
 	if err != nil {
 		return err
 	}
@@ -76,61 +34,66 @@ func (a *VLLMAPI) Start(namespace, model string) error {
 		namespace = "default"
 	}
 
-	ctx := context.Background()
-	resourceClient := dynamicClient.Resource(vllmGVR).Namespace(namespace)
-
-	// Check if the resource exists.
-	_, err = resourceClient.Get(ctx, resourceName, metav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("failed to get VLLM resource %q: %w", resourceName, err)
-		}
-		// Resource does not exist: create it.
-		_, err = resourceClient.Create(ctx, obj, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to create VLLM resource %q: %w", resourceName, err)
-		}
-		fmt.Printf("Created VLLM resource in Kubernetes: %s (model: %s)\n", resourceName, model)
-		return nil
-	}
-
-	// Resource exists: patch spec.action to "start" (and model/runtimeName if overridden).
-	updatedSpec, found, err := unstructured.NestedMap(obj.Object, "spec")
+	// Extract configuration from YAML
+	spec, found, err := unstructured.NestedMap(obj.Object, "spec")
 	if err != nil || !found {
 		return fmt.Errorf("failed to extract spec from YAML: %w", err)
 	}
 
-	// Create merge patch for spec.
-	patch := map[string]interface{}{
-		"spec": updatedSpec,
-	}
-	patchBytes, err := json.Marshal(patch)
-	if err != nil {
-		return fmt.Errorf("failed to marshal patch: %w", err)
+	// Extract fields from spec
+	runtimeName, _ := spec["runtimeName"].(string)
+	if runtimeName == "" {
+		runtimeName = model
 	}
 
-	// Apply patch.
-	_, err = resourceClient.Patch(ctx, resourceName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to patch VLLM resource %q: %w", resourceName, err)
+	replicas := 1
+	if r, ok := spec["replicas"].(int64); ok {
+		replicas = int(r)
 	}
 
-	fmt.Printf("Updated VLLM resource in Kubernetes: %s (model: %s, action: start)\n", resourceName, model)
+	args := []string{}
+	if argsRaw, ok := spec["args"].([]interface{}); ok {
+		for _, arg := range argsRaw {
+			if argStr, ok := arg.(string); ok {
+				args = append(args, argStr)
+			}
+		}
+	}
+
+	storageURI := ""
+	if uri, ok := spec["storageUri"].(string); ok {
+		storageURI = uri
+	}
+
+	vllmConfig, _ := spec["vllmConfig"].(map[string]interface{})
+	deployConfig, _ := spec["deploymentConfig"].(map[string]interface{})
+
+	// Use llm-d infra model service to start the model
+	req := &ModelStartRequest{
+		Namespace:    namespace,
+		RuntimeName:  runtimeName,
+		Model:        model,
+		Replicas:     replicas,
+		Args:         args,
+		StorageURI:   storageURI,
+		VLLMConfig:   vllmConfig,
+		DeployConfig: deployConfig,
+	}
+
+	resp, err := a.LLMDClient.StartModel(req)
+	if err != nil {
+		return fmt.Errorf("failed to start model via llm-d infra: %w", err)
+	}
+
+	fmt.Printf("✅ Started VLLM model via llm-d infra: %s (namespace: %s, status: %s)\n",
+		model, namespace, resp.Status)
 	return nil
 }
 
-// Stop updates an existing vLLM resource in Kubernetes to initiate the stop action.
+// Stop stops a vLLM model using llm-d infra model service.
 func (a *VLLMAPI) Stop(namespace, model string) error {
+	// Load YAML configuration to get runtime name
 	obj, err := loadAndValidateYAML(model)
-	if err != nil {
-		return err
-	}
-	resourceName := obj.GetName()
-	if resourceName == "" {
-		return fmt.Errorf("YAML must specify metadata.name for the resource")
-	}
-
-	dynamicClient, err := a.getDynamicClient()
 	if err != nil {
 		return err
 	}
@@ -139,83 +102,62 @@ func (a *VLLMAPI) Stop(namespace, model string) error {
 		namespace = "default"
 	}
 
-	ctx := context.Background()
-	resourceClient := dynamicClient.Resource(vllmGVR).Namespace(namespace)
+	spec, found, err := unstructured.NestedMap(obj.Object, "spec")
+	if err != nil || !found {
+		return fmt.Errorf("failed to extract spec from YAML: %w", err)
+	}
 
-	// Check if the resource exists.
-	_, err = resourceClient.Get(ctx, resourceName, metav1.GetOptions{})
+	runtimeName, _ := spec["runtimeName"].(string)
+	if runtimeName == "" {
+		runtimeName = model
+	}
+
+	// Use llm-d infra model service to stop the model
+	req := &ModelStopRequest{
+		Namespace:   namespace,
+		RuntimeName: runtimeName,
+		Model:       model,
+	}
+
+	resp, err := a.LLMDClient.StopModel(req)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return fmt.Errorf("VLLM resource %q not found; cannot stop", resourceName)
-		}
-		return fmt.Errorf("failed to get VLLM resource %q: %w", resourceName, err)
+		return fmt.Errorf("failed to stop model via llm-d infra: %w", err)
 	}
 
-	// Create merge patch for spec.action.
-	patch := map[string]interface{}{
-		"spec": map[string]interface{}{
-			"action": "stop",
-		},
-	}
-	patchBytes, err := json.Marshal(patch)
-	if err != nil {
-		return fmt.Errorf("failed to marshal patch: %w", err)
-	}
-
-	// Apply patch.
-	_, err = resourceClient.Patch(ctx, resourceName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to patch VLLM resource %q: %w", resourceName, err)
-	}
-
-	fmt.Printf("Updated VLLM resource in Kubernetes to stop: %s (model: %s)\n", resourceName, model)
+	fmt.Printf("✅ Stopped VLLM model via llm-d infra: %s (namespace: %s, status: %s)\n",
+		model, namespace, resp.Status)
 	return nil
 }
 
-// Get lists and displays all vLLM custom resources in the namespace that are currently in the "Running" status phase.
+// Get lists all vLLM models in the namespace using llm-d infra model service.
 func (a *VLLMAPI) Get(namespace string) ([]domain.VLLMResource, error) {
 	if namespace == "" {
 		namespace = "default"
 	}
 
-	dynamicClient, err := a.getDynamicClient()
+	// Use llm-d infra model service to list models
+	resp, err := a.LLMDClient.ListModels(namespace)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list models via llm-d infra: %w", err)
 	}
 
-	ctx := context.Background()
-	resourceClient := dynamicClient.Resource(vllmGVR).Namespace(namespace)
-
-	// List all vLLM resources.
-	list, err := resourceClient.List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list VLLM resources: %w", err)
-	}
-
-	var runningResources []domain.VLLMResource
-	for _, item := range list.Items {
-		phase, foundPhase, err := unstructured.NestedString(item.Object, "status", "phase")
-		if err != nil || !foundPhase || phase != "Running" {
-			continue
+	var resources []domain.VLLMResource
+	for _, model := range resp.Models {
+		// Only include running models
+		if model.Phase == "Running" || model.Phase == "Ready" {
+			resources = append(resources, domain.VLLMResource{
+				Name:  model.Name,
+				Model: model.Model,
+				Phase: model.Phase,
+			})
 		}
-
-		model, foundModel, err := unstructured.NestedString(item.Object, "spec", "model")
-		if err != nil || !foundModel {
-			model = "unknown"
-		}
-
-		resourceName := item.GetName()
-		runningResources = append(runningResources, domain.VLLMResource{
-			Name:  resourceName,
-			Model: model,
-			Phase: phase,
-		})
-	}
-	if len(runningResources) == 0 {
-		fmt.Println("No running vLLM resources found.")
 	}
 
-	return runningResources, nil
+	if len(resources) == 0 {
+		fmt.Println("No running vLLM resources found via llm-d infra.")
+	}
+
+	return resources, nil
 }
 
 type CreateParams struct {

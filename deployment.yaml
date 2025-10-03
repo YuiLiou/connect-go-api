@@ -12,11 +12,17 @@ spec:
       labels:
         app: connect-go
     spec:
+      serviceAccountName: vllm-operator
       containers:
       - name: connect-go
         image: <your-dockerhub-username>/connect-go:latest
         ports:
         - containerPort: 8080
+        env:
+        - name: LLMD_MODEL_SERVICE_ENDPOINT
+          value: "http://llm-d-model-service:8080"
+        - name: VLLM_ROUTER_ENDPOINT
+          value: "http://vllm-router-service:80"
 ---
 apiVersion: v1
 kind: Service

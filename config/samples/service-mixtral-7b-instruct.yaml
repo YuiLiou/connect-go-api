@@ -1,0 +1,86 @@
+# ----------------------------------------------------
+# 1. Modelservice & Metadata Configuration
+# ----------------------------------------------------
+# modelservice.name 是此部署在 llm-d 系統中的邏輯名稱，用於路由和監控。
+modelservice:
+  name: "mistral-7b-instruct"
+  # version: "v1.0" # 可選：版本標籤
+  
+# modelInfo 定義了模型的基礎資訊
+modelInfo:
+  # 從 HuggingFace 下載的模型 ID
+  modelId: "Mistralai/Mistral-7B-Instruct-v0.2"
+  # KV Cache 的快取策略。llm-d 預設會使用優化的快取機制。
+  # 設置此處通常會影響 modelId 的使用方式。
+  
+# ----------------------------------------------------
+# 2. vLLM Engine Configuration (核心推理引擎配置)
+# ----------------------------------------------------
+vllm:
+  # vLLM 容器使用的 Docker 鏡像，通常是官方或 llm-d 提供的包含 vLLM 的鏡像
+  image:
+    repository: "vllm/vllm-openai"
+    tag: "latest"
+  
+  # 模型參數
+  arguments:
+    # 這是 vLLM 命令行參數，告訴它載入哪個模型
+    - "--model"
+    - "{{ .Values.modelInfo.modelId }}" # 引用上面的 modelId
+    
+    # vLLM 的核心優化參數
+    - "--tensor-parallel-size"
+    - "1" # 使用多少個 GPU 進行張量平行 (TP)。單 GPU 為 1。
+    - "--gpu-memory-utilization"
+    - "0.9" # 限制 GPU 記憶體用於 KV Cache 的比例。0.9 表示保留 10% 給 OS/PyTorch。
+    - "--max-model-len"
+    - "4096" # 模型支援的最大上下文長度 (Prompt + Generation)
+    
+  # 模型的副本數量
+  replicaCount: 1
+
+# ----------------------------------------------------
+# 3. Kubernetes Resource Requests & Limits
+# ----------------------------------------------------
+resources:
+  # 所有 Pods 的統一資源配置
+  requests:
+    cpu: "4"         # 請求 4 個 CPU 核心
+    memory: "32Gi"   # 請求 32 GB 記憶體 (用於模型載入和系統開銷)
+    nvidia.com/gpu: 1  # 請求 1 個 NVIDIA GPU
+  limits:
+    cpu: "8"         # 限制最多使用 8 個 CPU 核心
+    memory: "64Gi"   # 限制最多使用 64 GB 記憶體
+    nvidia.com/gpu: 1  # 限制使用 1 個 NVIDIA GPU
+
+# ----------------------------------------------------
+# 4. (進階) Prefill/Decode 分離配置 (Disaggregation)
+# ----------------------------------------------------
+# llm-d 的一個關鍵優勢是將計算拆分成 PreFill (Prompt 處理) 和 Decode (Token 生成) 階段。
+# 對於大型或混合工作負載，這可以顯著提高效率。
+
+disaggregation:
+  enabled: false # 預設先關閉，使用單一工作負載 (Combined)
+  # 如果要啟用 disaggregation: enabled: true，則需要分別配置 prefill 和 decode 的副本和資源
+
+# ----------------------------------------------------
+# 5. 節點親和性和容忍度 (Node Affinity & Tolerations)
+# ----------------------------------------------------
+# 確保模型 Pods 部署在帶有 GPU 的節點上
+nodeSelector:
+  # 根據您的集群配置，可能需要修改此標籤
+  kubernetes.io/arch: amd64 
+  # 例如：gpu-type: nvidia-a100
+  
+# 如果您的 GPU 節點有 Taint，您需要添加 Tolerations
+tolerations: []
+# - key: "nvidia.com/gpu"
+#   operator: "Exists"
+#   effect: "NoSchedule"
+
+# ----------------------------------------------------
+# 6. Hugging Face Secret 
+# ----------------------------------------------------
+# 如果模型是私有的或需要登入 (例如 Llama 3)，需要引用 K8s Secret
+secrets:
+  hfTokenSecret: "llm-d-hf-token" # 假設您已創建一個名為 'llm-d-hf-token' 的 Secret

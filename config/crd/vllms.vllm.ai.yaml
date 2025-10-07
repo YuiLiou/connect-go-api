@@ -57,12 +57,34 @@ spec:
                             type: string
                           value:
                             type: string
-
+                          valueFrom:
+                            type: object
+                            properties:
+                              secretKeyRef:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                  key:
+                                    type: string
+                                required: ["name", "key"]
+                        required: ["name"]
                 deploymentConfig:
                   type: object
                   properties:
                     resources:
                       type: object
+                      properties:
+                        limits:
+                          type: object
+                          additionalProperties:
+                            type: string
+                          description: "Resource limits (e.g., nvidia.com/gpu: '1')"
+                        requests:
+                          type: object
+                          additionalProperties:
+                            type: string
+                          description: "Resource requests (e.g., nvidia.com/gpu: '1')"
                     deviceRequests:
                       type: array
                       items:
@@ -82,10 +104,31 @@ spec:
                       type: array
                       items:
                         type: object
+                        properties:
+                          name:
+                            type: string
+                          mountPath:
+                            type: string
+                        required: ["name", "mountPath"]                    
                     volumes:
                       type: array
                       items:
                         type: object
+                        properties:
+                          name:
+                            type: string
+                          persistentVolumeClaim:
+                            type: object
+                            properties:
+                              claimName:
+                                type: string
+                            required: ["claimName"]
+                        required: ["name"]
+                    nodeSelector:
+                      type: object
+                      additionalProperties:
+                        type: string
+                      description: "Node selector for pod scheduling"                          
               required: [namespace, runtimeName, model, action]
             status:
               type: object

@@ -2,9 +2,9 @@ apiVersion: vllm.ai/v1
 kind: VLLM
 metadata:
   name: llm-runtime-llama
-  namespace: default
+  namespace: rsliu
 spec:
-  namespace: default
+  namespace: rsliu
   runtimeName: llama-3.1-8b
   model: "llama-3.1-8b"
   action: start
@@ -16,7 +16,8 @@ spec:
     - "--max-num-seqs=32"
     - "--tensor-parallel-size=1"
     - "--gpu-memory-utilization=0.8"
-  storageUri: "file:///usr/local/models/llama-3.1-8b"
+  # Uncomment and set the storageUri if your model is stored in a specific location
+  # storageUri: "file:///usr/local/models/llama-3.1-8b"
   
   vllmConfig:
     port: 8000
@@ -24,6 +25,11 @@ spec:
     env:
       - name: HF_HOME
         value: "/data"
+      - name: HF_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: llm-d-hf-token
+            key: HF_TOKEN
   deploymentConfig:
     resources:
       limits:
@@ -43,3 +49,6 @@ spec:
       - name: model-storage
         persistentVolumeClaim:
           claimName: llm-models-pvc
+    # Set nodeSelector if you want to schedule the pod on specific nodes
+    nodeSelector:
+      gpu-type: high-performance

@@ -42,6 +42,12 @@ func main() {
 		vllmAPIEndpoint = "http://vllm-router-service:80"
 	}
 
+	// llm-d model service endpoint
+	modelServiceEndpoint := os.Getenv("MODEL_SERVICE_ENDPOINT")
+	if modelServiceEndpoint == "" {
+		modelServiceEndpoint = "http://llm-d-service:8080"
+	}
+
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatalf("Failed to get in-cluster config: %v", err)
@@ -51,7 +57,7 @@ func main() {
 		log.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
 
-	vllmAPI := &vllmInfra.VLLMAPI{Endpoint: vllmAPIEndpoint}
+	vllmAPI := vllmInfra.NewVLLMAPI(vllmAPIEndpoint, modelServiceEndpoint)
 	vllmRepo := vllmInfra.NewK8sVLLMRepository(clientset, config)
 	vllmService := vllmApp.NewVLLMServiceImpl(vllmAPI, vllmRepo)
 	vllmHandler := vllmIface.NewVLLMHandler(vllmService)

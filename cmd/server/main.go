@@ -36,7 +36,14 @@ func (s *GreetServer) Greet(
 }
 
 func main() {
-	// vllm production stack router endpoint
+	// llm-d infra model service endpoint
+	llmdServiceEndpoint := os.Getenv("LLMD_MODEL_SERVICE_ENDPOINT")
+	if llmdServiceEndpoint == "" {
+		// Default to llm-d infra model service endpoint
+		llmdServiceEndpoint = "http://llm-d-model-service:8080"
+	}
+
+	// Legacy vllm router endpoint (kept for backward compatibility if needed)
 	vllmAPIEndpoint := os.Getenv("VLLM_ROUTER_ENDPOINT")
 	if vllmAPIEndpoint == "" {
 		vllmAPIEndpoint = "http://vllm-router-service:80"
@@ -51,7 +58,12 @@ func main() {
 		log.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
 
-	vllmAPI := &vllmInfra.VLLMAPI{Endpoint: vllmAPIEndpoint}
+	// Initialize llm-d infra client
+	llmdClient := vllmInfra.NewLLMDClient(llmdServiceEndpoint)
+	log.Printf("Initialized llm-d infra client with endpoint: %s", llmdServiceEndpoint)
+
+	// Initialize VLLM API with llm-d client
+	vllmAPI := vllmInfra.NewVLLMAPI(vllmAPIEndpoint, llmdClient)
 	vllmRepo := vllmInfra.NewK8sVLLMRepository(clientset, config)
 	vllmService := vllmApp.NewVLLMServiceImpl(vllmAPI, vllmRepo)
 	vllmHandler := vllmIface.NewVLLMHandler(vllmService)
